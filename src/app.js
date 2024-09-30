@@ -2,6 +2,7 @@ const express = require('express');
 require('./config/database')
 const app = express();
 const User = require('./models/user')
+var jwt = require('jsonwebtoken');
 
 app.use(express.json());
 
@@ -13,12 +14,19 @@ app.post("/signup", async (req, res) => {
         res.send("User added successfully!")
     }
     catch(err) {
-        // res.status(400).send("Error " + err.message)
-        res.json({
-            'status': 400,
-            'message': err.message
-        })
+        res.status(400).send("Error " + err.message)
     }
+})
+
+app.post('/signIn', async(req, res) => {
+    const {email, password } = req.body;
+    const user = await User.findOne({email});
+    if(!user._id) {
+        res.send("Invalid Credentials")
+    }
+    const token = await jwt.sign({id: user._id}, process.env.JWT_PRIVATE_KEY);
+    res.cookie("token", token)
+    res.send("Login Successfully!");
 })
 
 app.get("/listUser", async (req, res) => {
@@ -54,6 +62,10 @@ app.patch("/updateUser", async (req, res) => {
     catch(err) {
         res.status(500).send(err.message);
     }
+})
+
+app.get("/listUser", (req, res) => {
+    res.send("Getting Profile!!!");
 })
 
 app.listen(2000, (req, res) => {
