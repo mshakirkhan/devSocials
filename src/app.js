@@ -6,10 +6,19 @@ const User = require('./models/user')
 app.use(express.json());
 
 app.post("/signup", async (req, res) => {
-    const data = req.body;
-    const user = new User(data)
-    await user.save();
-    res.send("User added successfully!")
+    try {
+        const data = req.body;
+        const user = new User(data)
+        await user.save();
+        res.send("User added successfully!")
+    }
+    catch(err) {
+        // res.status(400).send("Error " + err.message)
+        res.json({
+            'status': 400,
+            'message': err.message
+        })
+    }
 })
 
 app.get("/listUser", async (req, res) => {
@@ -36,7 +45,10 @@ app.delete("/deleteUser", async(req, res) => {
 app.patch("/updateUser", async (req, res) => {
     const data = req.body;
     try{
-        const user = await User.findByIdAndUpdate(data.id, data, {returnDocument:'before'});
+        const user = await User.findByIdAndUpdate(data.id, data, {
+            returnDocument:'before',
+            runValidators:true
+        });
         res.send(user);
     }
     catch(err) {
