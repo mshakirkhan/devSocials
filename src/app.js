@@ -3,13 +3,25 @@ require('./config/database')
 const app = express();
 const User = require('./models/user')
 var jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const cookieParser = require('cookie-parser')
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.post("/signup", async (req, res) => {
     try {
-        const data = req.body;
-        const user = new User(data)
+        const {firstName, lastName, email, password, age, gender, skills} = req.body;
+        const hashPass = bcrypt.hashSync(password, 10);
+        const user = new User({
+            firstName,
+            lastName,
+            email,
+            password: hashPass,
+            age: age,
+            gender: gender,
+            skills: skills
+        })
         await user.save();
         res.send("User added successfully!")
     }
@@ -19,14 +31,23 @@ app.post("/signup", async (req, res) => {
 })
 
 app.post('/signIn', async(req, res) => {
-    const {email, password } = req.body;
-    const user = await User.findOne({email});
-    if(!user._id) {
-        res.send("Invalid Credentials")
+    try {
+        const {email, password } = req.body;
+        const user = await User.findOne({email});
+        if(!user) {
+            throw new Error("Invalid Credentials");
+        }
+        const passResult = await bcrypt.compareSync(password, user.password);
+        if(!passResult) {
+            throw new Error("Invalid Credentials");
+        }
+        const token = await jwt.sign({id: user._id}, process.env.JWT_PRIVATE_KEY);
+        res.cookie("token", token)
+        res.send("Login Successfully!");
     }
-    const token = await jwt.sign({id: user._id}, process.env.JWT_PRIVATE_KEY);
-    res.cookie("token", token)
-    res.send("Login Successfully!");
+    catch(err) {
+        res.status(400).send(err.message);
+    }
 })
 
 app.get("/listUser", async (req, res) => {
@@ -46,7 +67,7 @@ app.delete("/deleteUser", async(req, res) => {
         res.send("User deleted successfully");
     }
     catch(err) {
-        res.status(500).send(err.message)
+        res.status(500).send(err.message);
     }
 })
 
@@ -64,8 +85,18 @@ app.patch("/updateUser", async (req, res) => {
     }
 })
 
-app.get("/listUser", (req, res) => {
-    res.send("Getting Profile!!!");
+app.get("/getProfile", async (req, res) => {
+    try {
+        const {token} = req.cookies;
+        const decoded = jwt.verify(token, process.env.JWT_PRIVATE_KEY);
+        if(decoded) {
+            const user = await User.find({_id: decoded.id});
+            res.send(user);
+        }
+    }
+    catch(err) {
+        res.send(err.message);
+    }
 })
 
 app.listen(2000, (req, res) => {
