@@ -2,53 +2,14 @@ const express = require('express');
 require('./config/database')
 const app = express();
 const User = require('./models/user')
-var jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
 const cookieParser = require('cookie-parser')
 
 app.use(express.json());
 app.use(cookieParser());
 
-app.post("/signup", async (req, res) => {
-    try {
-        const {firstName, lastName, email, password, age, gender, skills} = req.body;
-        const hashPass = bcrypt.hashSync(password, 10);
-        const user = new User({
-            firstName,
-            lastName,
-            email,
-            password: hashPass,
-            age: age,
-            gender: gender,
-            skills: skills
-        })
-        await user.save();
-        res.send("User added successfully!")
-    }
-    catch(err) {
-        res.status(400).send("Error " + err.message)
-    }
-})
+const authRoute = require('./routes/auth');
 
-app.post('/signIn', async(req, res) => {
-    try {
-        const {email, password } = req.body;
-        const user = await User.findOne({email});
-        if(!user) {
-            throw new Error("Invalid Credentials");
-        }
-        const passResult = await bcrypt.compareSync(password, user.password);
-        if(!passResult) {
-            throw new Error("Invalid Credentials");
-        }
-        const token = await jwt.sign({id: user._id}, process.env.JWT_PRIVATE_KEY);
-        res.cookie("token", token)
-        res.send("Login Successfully!");
-    }
-    catch(err) {
-        res.status(400).send(err.message);
-    }
-})
+app.use('/', authRoute);
 
 app.get("/listUser", async (req, res) => {
     try {
